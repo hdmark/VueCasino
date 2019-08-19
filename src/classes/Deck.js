@@ -31,7 +31,7 @@ let Deck = {
       [deck[i], deck[j]] = [deck[j], deck[i]];
     }
 
-    //return;
+    return deck;
   },
 };
 

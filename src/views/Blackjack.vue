@@ -2,80 +2,73 @@
   <div>
     <div class="info">
       <h3>Blackjack</h3>
-      <h5>Funds {{money}}</h5>
-      <div>{{cardsLeft}}</div>
+      <h5>Funds {{funds}}</h5>
       <div>{{gameOutcome}}</div>
-      <button @click="newGame">New Game</button>
+      <button @click="dealGame">Deal New Game</button>
       <button @click="shuffle">Shuffle</button>
-      <button @click="hit" :disabled="!playerActive">Hit</button>
-      <button @click="stand" :disabled="!playerActive">Stand</button>
+      <button @click="hit" :disabled="!playerActive && gameActive">Hit</button>
+      <button @click="stand" :disabled="!playerActive && gameActive">Stand</button>
     </div>
 
     <div class="hands">
       <div class="player">
         <h3>{{playerScore}}</h3>
-        <Hand person="player"></Hand>
+        <div v-for="(card,key) in playerHand" :key="key">{{card.rank}} - {{card.suit}}</div>
       </div>
       <div class="dealer">
         <h4>{{dealerScore}}</h4>
-        <hand person="dealer"></hand>
+        <div v-for="(card,key) in dealerHand" :key="key">{{card.rank}} - {{card.suit}}</div>
       </div>
     </div>
     <hr>
-    <!-- <Deck></Deck> -->
+
+    <div v-for="(card,key) in deck" :key="key">{{card.rank}} - {{card.suit}}</div>
   </div>
 </template>
 
 <script>
-import Deck from "../components/Deck";
-import Hand from "../components/Hand";
+import Deck from "../classes/Deck";
 export default {
-  components: {
-    Deck,
-    Hand
-  },
   data() {
     return {
+      deck: [],
+      playerHand: [],
+      dealerHand: [],
+      discardPile: [],
       playerActive: 1,
       gameOutcome: "",
-      money: 0
+      money: 0,
+      gameActive: 0
     };
   },
   mounted() {
-    this.$store.dispatch("createDeck");
+    this.initialize();
+    // this.$store.dispatch("createDeck");
   },
   computed: {
     playerScore() {
-      if (this.player.length > 0) {
-        return this.calcScore(this.player);
+      if (this.playerHand.length > 0) {
+        return this.calcScore(this.playerHand);
       }
       return 0;
     },
     dealerScore() {
-      if (this.dealer.length > 0) {
-        return this.calcScore(this.dealer);
+      if (this.dealerHand.length > 0) {
+        return this.calcScore(this.dealerHand);
       }
       return 0;
     },
-    cardsLeft() {
-      console.log(this.cards);
-      if (this.cards != [] && this.cards.length < 1) {
-        this.playerActive = 1;
-        this.$store.dispatch("newGame");
-      }
-      return this.cards.length;
-    },
-    cards() {
-      return this.$store.getters.deck;
-    },
-    player() {
-      return this.$store.getters.player;
-    },
-    dealer() {
-      return this.$store.getters.dealer;
+    funds() {
+      return this.$store.getters.funds;
     }
   },
   methods: {
+    initialize: function() {
+      this.playerActive = 1;
+      this.gameOutcome = "";
+      this.deck = Deck.buildDeck();
+      this.gameActive = 0;
+    },
     calcScore: function(arr) {
       let sum = 0;
 
@@ -105,7 +98,8 @@ export default {
 
     hit: function() {
       // draw card, determine if bust
-      this.$store.dispatch("drawCard", "player");
+      this.playerHand.push(Deck.drawCard(this.deck));
+
       if (this.playerScore > 21) {
         this.playerActive = 0;
         //this.gameOutcome = "BUST";
@@ -118,48 +112,59 @@ export default {
 
       // hit till 17
       while (this.dealerScore <= 17) {
-        this.$store.dispatch("drawCard", "dealer");
+        this.dealerHand.push(Deck.drawCard(this.deck));
       }
 
       // determine outcome
       this.calcWinner();
     },
-    calcWinner: function() {
-      if (this.playerScore > 21) {
-        this.gameOutcome = "Bust";
-        // this.money++;
-      } else if (this.dealerScore > 21) {
-        this.gameOutcome = "Win";
-        this.money += 2;
-      } else if (this.dealerScore > this.playerScore) {
-        this.gameOutcome = "Lose";
-        // this.money;
-      } else if (this.dealerScore == this.playerScore) {
-        this.gameOutcome = "Push";
-        this.money++;
-      } else {
-        this.gameOutcome = "win";
-        this.money += 2;
+
+    dealGame: function() {
+      this.playerActive = 1;
+      this.gameActive = 1;
+      this.gameOutcome = "";
+      this.playerHand = [];
+      this.dealerHand = [];
+      this.deck = Deck.buildDeck();
+      this.$store.dispatch("updateFunds", -1);
+      this.shuffle();
+      this.dealPlayer();
+      this.dealDealer();
+      this.dealPlayer();
+      this.dealDealer();
+      if (this.playerScore == 21) {
+        this.gameOutcome = "BLACKJACK!";
+        this.$store.dispatch("updateFunds", 3);
       }
     },
-    newGame: function() {
-      this.playerActive = 1;
-      this.money--;
-      this.gameOutcome = "";
-      this.$store.dispatch("newGame");
-      this.dealPlayer();
-      this.dealDealer();
-      this.dealPlayer();
-      this.dealDealer();
-    },
     shuffle: function() {
-      this.$store.dispatch("shuffleDeck");
+      this.deck = Deck.shuffle(this.deck);
     },
     dealPlayer: function() {
-      this.$store.dispatch("drawCard", "player");
+      this.playerHand.push(Deck.drawCard(this.deck));
     },
     dealDealer: function() {
-      this.$store.dispatch("drawCard", "dealer");
+      this.dealerHand.push(Deck.drawCard(this.deck));
+      // this.$store.dispatch("drawCard", "dealer");
+    },
+    calcWinner: function() {
+      let pot = 0;
+      if (this.playerScore > 21) {
+        this.gameOutcome = "Bust";
+      } else if (this.dealerScore > 21) {
+        this.gameOutcome = "Win";
+        pot = 2;
+      } else if (this.dealerScore > this.playerScore) {
+        this.gameOutcome = "Lose";
+      } else if (this.dealerScore == this.playerScore) {
+        this.gameOutcome = "Push";
+        pot = 1;
+      } else {
+        this.gameOutcome = "win";
+        pot = 2;
+      }
+      this.$store.dispatch("updateFunds", pot);
+      this.gameActive = 0;
     }
   }
 };

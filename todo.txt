@@ -1,0 +1,7 @@
+remove games from vuex, thinking each game will stay in the parent component
+
+create deck class object or object to handle basic functions such as card generation, card move (from hand/pile to table/w.e)
+
+move funds to vuex
+
+create object of game winning? add/subtract funds, might just be easier in actions.  action -> Win(amoutn), Lose(amount), Bet(amount) ?
